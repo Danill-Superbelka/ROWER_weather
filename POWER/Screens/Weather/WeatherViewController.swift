@@ -1,14 +1,14 @@
 import UIKit
 import SnapKit
-internal import _LocationEssentials
+import Combine
 
 // MARK: - WeatherViewController
 
 final class WeatherViewController: UIViewController {
 
     private let weatherView = WeatherView()
-    private let locationService = LocationService()
-    private let weatherService = WeatherService(network: NetworkService.shared)
+    private let viewModel = WeatherViewModel()
+    private var cancellables = Set<AnyCancellable>()
 
     override func loadView() {
         view = weatherView
@@ -16,55 +16,52 @@ final class WeatherViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "—"
+        title = ""
         setupNavigationBar()
+        bindViewModel()
 
         weatherView.onRetryTapped = { [weak self] in
-            self?.loadWeatherByLocation()
+            self?.viewModel.loadByLocation()
         }
 
-        loadWeatherByLocation()
+        viewModel.loadByLocation()
     }
 
-    // MARK: - Data Loading
+    // MARK: - Bindings
 
-    private func loadWeatherByLocation() {
-        Task {
-            weatherView.showState(.loading)
+    private func bindViewModel() {
+        viewModel.$state
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] state in
+                self?.weatherView.showState(state)
+            }
+            .store(in: &cancellables)
 
-            let coordinate = await locationService.requestLocation()
-            await fetchWeather(lat: coordinate.latitude, lon: coordinate.longitude)
-        }
-    }
+        viewModel.$cityName
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] name in
+                self?.title = name
+            }
+            .store(in: &cancellables)
 
-    private func loadWeather(for city: CitySearchResult) {
-        Task {
-            weatherView.showState(.loading)
-            await fetchWeather(lat: city.lat, lon: city.lon)
-        }
-    }
-
-    private func fetchWeather(lat: Double, lon: Double) async {
-        do {
-            let forecast = try await weatherService.fetchForecast(lat: lat, lon: lon)
-            title = forecast.location.name
-            weatherView.configure(with: forecast)
-            weatherView.showState(.loaded)
-        } catch {
-            weatherView.showState(
-                .error(NSLocalizedString("error.loadFailed", comment: ""))
-            )
-        }
+        viewModel.$forecast
+            .receive(on: DispatchQueue.main)
+            .compactMap { $0 }
+            .sink { [weak self] forecast in
+                self?.weatherView.configure(with: forecast)
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Actions
 
     @objc private func locationTapped() {
-        loadWeatherByLocation()
+        viewModel.loadByLocation()
     }
 
     @objc private func searchTapped() {
-        let searchVC = CitySearchViewController()
+        let searchVM = CitySearchViewModel()
+        let searchVC = CitySearchViewController(viewModel: searchVM)
         searchVC.delegate = self
         let nav = UINavigationController(rootViewController: searchVC)
         present(nav, animated: true)
@@ -104,6 +101,6 @@ final class WeatherViewController: UIViewController {
 
 extension WeatherViewController: CitySearchDelegate {
     func didSelectCity(_ city: CitySearchResult) {
-        loadWeather(for: city)
+        viewModel.loadByCity(city)
     }
 }

@@ -1,5 +1,6 @@
 import UIKit
 import SnapKit
+import Combine
 
 protocol CitySearchDelegate: AnyObject {
     func didSelectCity(_ city: CitySearchResult)
@@ -9,9 +10,8 @@ final class CitySearchViewController: UIViewController {
 
     weak var delegate: CitySearchDelegate?
 
-    private let weatherService = WeatherService(network: NetworkService.shared)
-    private var results: [CitySearchResult] = []
-    private var searchTask: Task<Void, Never>?
+    private let viewModel: CitySearchViewModel
+    private var cancellables = Set<AnyCancellable>()
 
     private let searchBar: UISearchBar = {
         let bar = UISearchBar()
@@ -36,10 +36,24 @@ final class CitySearchViewController: UIViewController {
         return tv
     }()
 
+    // MARK: - Init
+
+    init(viewModel: CitySearchViewModel) {
+        self.viewModel = viewModel
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    // MARK: - Lifecycle
+
     override func viewDidLoad() {
         super.viewDidLoad()
         title = NSLocalizedString("search.title", comment: "")
         setupUI()
+        bindViewModel()
 
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             barButtonSystemItem: .close,
@@ -53,9 +67,24 @@ final class CitySearchViewController: UIViewController {
         searchBar.becomeFirstResponder()
     }
 
+    // MARK: - Bindings
+
+    private func bindViewModel() {
+        viewModel.$results
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.tableView.reloadData()
+            }
+            .store(in: &cancellables)
+    }
+
+    // MARK: - Actions
+
     @objc private func closeTapped() {
         dismiss(animated: true)
     }
+
+    // MARK: - Setup
 
     private func setupUI() {
         view.backgroundColor = .Colors.gradientTop
@@ -84,34 +113,13 @@ final class CitySearchViewController: UIViewController {
             make.leading.trailing.bottom.equalToSuperview()
         }
     }
-
-    private func searchCities(query: String) {
-        searchTask?.cancel()
-
-        guard !query.isEmpty else {
-            results = []
-            tableView.reloadData()
-            return
-        }
-
-        searchTask = Task {
-            do {
-                let cities = try await weatherService.searchCities(query: query)
-                guard !Task.isCancelled else { return }
-                results = cities
-                tableView.reloadData()
-            } catch {
-                // ignore search errors
-            }
-        }
-    }
 }
 
 // MARK: - UISearchBarDelegate
 
 extension CitySearchViewController: UISearchBarDelegate {
     func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
-        searchCities(query: searchText)
+        viewModel.searchQuery.send(searchText)
     }
 }
 
@@ -120,12 +128,12 @@ extension CitySearchViewController: UISearchBarDelegate {
 extension CitySearchViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        results.count
+        viewModel.results.count
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "CityCell", for: indexPath)
-        let city = results[indexPath.row]
+        let city = viewModel.results[indexPath.row]
 
         var config = cell.defaultContentConfiguration()
         config.text = city.name
@@ -145,7 +153,7 @@ extension CitySearchViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        let city = results[indexPath.row]
+        let city = viewModel.results[indexPath.row]
         delegate?.didSelectCity(city)
         dismiss(animated: true)
     }
