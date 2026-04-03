@@ -20,33 +20,57 @@ final class WeatherViewController: UIViewController {
         setupNavigationBar()
 
         weatherView.onRetryTapped = { [weak self] in
-            self?.loadWeather()
+            self?.loadWeatherByLocation()
         }
 
-        loadWeather()
+        loadWeatherByLocation()
     }
 
-    private func loadWeather() {
+    // MARK: - Data Loading
+
+    private func loadWeatherByLocation() {
         Task {
             weatherView.showState(.loading)
 
             let coordinate = await locationService.requestLocation()
-
-            do {
-                let forecast = try await weatherService.fetchForecast(
-                    lat: coordinate.latitude,
-                    lon: coordinate.longitude
-                )
-                title = forecast.location.name
-                weatherView.configure(with: forecast)
-                weatherView.showState(.loaded)
-            } catch {
-                weatherView.showState(
-                    .error(NSLocalizedString("error.loadFailed", comment: ""))
-                )
-            }
+            await fetchWeather(lat: coordinate.latitude, lon: coordinate.longitude)
         }
     }
+
+    private func loadWeather(for city: CitySearchResult) {
+        Task {
+            weatherView.showState(.loading)
+            await fetchWeather(lat: city.lat, lon: city.lon)
+        }
+    }
+
+    private func fetchWeather(lat: Double, lon: Double) async {
+        do {
+            let forecast = try await weatherService.fetchForecast(lat: lat, lon: lon)
+            title = forecast.location.name
+            weatherView.configure(with: forecast)
+            weatherView.showState(.loaded)
+        } catch {
+            weatherView.showState(
+                .error(NSLocalizedString("error.loadFailed", comment: ""))
+            )
+        }
+    }
+
+    // MARK: - Actions
+
+    @objc private func locationTapped() {
+        loadWeatherByLocation()
+    }
+
+    @objc private func searchTapped() {
+        let searchVC = CitySearchViewController()
+        searchVC.delegate = self
+        let nav = UINavigationController(rootViewController: searchVC)
+        present(nav, animated: true)
+    }
+
+    // MARK: - Setup
 
     private func setupNavigationBar() {
         navigationController?.navigationBar.prefersLargeTitles = true
@@ -59,5 +83,27 @@ final class WeatherViewController: UIViewController {
         navigationController?.navigationBar.standardAppearance = appearance
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
         navigationController?.navigationBar.tintColor = .white
+
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "location.fill"),
+            style: .plain,
+            target: self,
+            action: #selector(locationTapped)
+        )
+
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "magnifyingglass"),
+            style: .plain,
+            target: self,
+            action: #selector(searchTapped)
+        )
+    }
+}
+
+// MARK: - CitySearchDelegate
+
+extension WeatherViewController: CitySearchDelegate {
+    func didSelectCity(_ city: CitySearchResult) {
+        loadWeather(for: city)
     }
 }
