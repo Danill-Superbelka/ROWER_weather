@@ -26,6 +26,13 @@ extension DateFormatter {
         f.dateFormat = "EEEE"
         return f
     }()
+
+    static let shortDayName: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale.current
+        f.dateFormat = "EE"
+        return f
+    }()
 }
 
 extension Date {
@@ -44,6 +51,10 @@ extension Date {
 
     var localizedDayName: String {
         DateFormatter.dayName.string(from: self).capitalized
+    }
+
+    var shortDayName: String {
+        DateFormatter.shortDayName.string(from: self).uppercased()
     }
 }
 
