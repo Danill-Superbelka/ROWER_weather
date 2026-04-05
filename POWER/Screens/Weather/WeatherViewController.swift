@@ -7,8 +7,20 @@ import Combine
 final class WeatherViewController: UIViewController {
 
     private let weatherView = WeatherView()
-    private let viewModel = WeatherViewModel()
+    private let viewModel: WeatherViewModel
     private var cancellables = Set<AnyCancellable>()
+
+    init() {
+        self.viewModel = WeatherViewModel(
+            locationService: LocationService(),
+            weatherService: WeatherService(network: NetworkService.shared)
+        )
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     override func loadView() {
         view = weatherView
@@ -60,7 +72,9 @@ final class WeatherViewController: UIViewController {
     }
 
     @objc private func searchTapped() {
-        let searchVM = CitySearchViewModel()
+        let searchVM = CitySearchViewModel(
+            weatherService: WeatherService(network: NetworkService.shared)
+        )
         let searchVC = CitySearchViewController(viewModel: searchVM)
         searchVC.delegate = self
         let nav = UINavigationController(rootViewController: searchVC)

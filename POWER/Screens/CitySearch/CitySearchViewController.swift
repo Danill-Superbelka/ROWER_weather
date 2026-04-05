@@ -36,6 +36,23 @@ final class CitySearchViewController: UIViewController {
         return tv
     }()
 
+    private let statusLabel: UILabel = {
+        let label = UILabel()
+        label.font = .systemFont(ofSize: 16, weight: .medium)
+        label.textColor = .Colors.secondaryText
+        label.textAlignment = .center
+        label.numberOfLines = 0
+        label.isHidden = true
+        return label
+    }()
+
+    private let loadingIndicator: UIActivityIndicatorView = {
+        let indicator = UIActivityIndicatorView(style: .medium)
+        indicator.color = .white
+        indicator.hidesWhenStopped = true
+        return indicator
+    }()
+
     // MARK: - Init
 
     init(viewModel: CitySearchViewModel) {
@@ -76,6 +93,35 @@ final class CitySearchViewController: UIViewController {
                 self?.tableView.reloadData()
             }
             .store(in: &cancellables)
+
+        viewModel.$searchState
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] state in
+                self?.updateState(state)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func updateState(_ state: CitySearchState) {
+        switch state {
+        case .idle:
+            statusLabel.isHidden = true
+            loadingIndicator.stopAnimating()
+        case .loading:
+            statusLabel.isHidden = true
+            loadingIndicator.startAnimating()
+        case .loaded:
+            statusLabel.isHidden = true
+            loadingIndicator.stopAnimating()
+        case .empty:
+            loadingIndicator.stopAnimating()
+            statusLabel.text = NSLocalizedString("search.empty", comment: "")
+            statusLabel.isHidden = false
+        case .error(let message):
+            loadingIndicator.stopAnimating()
+            statusLabel.text = message
+            statusLabel.isHidden = false
+        }
     }
 
     // MARK: - Actions
@@ -98,6 +144,8 @@ final class CitySearchViewController: UIViewController {
 
         view.addSubview(searchBar)
         view.addSubview(tableView)
+        view.addSubview(statusLabel)
+        view.addSubview(loadingIndicator)
 
         searchBar.delegate = self
         tableView.delegate = self
@@ -108,9 +156,20 @@ final class CitySearchViewController: UIViewController {
             make.leading.trailing.equalToSuperview().inset(8)
         }
 
+        loadingIndicator.snp.makeConstraints { make in
+            make.top.equalTo(searchBar.snp.bottom).offset(20)
+            make.centerX.equalToSuperview()
+        }
+
         tableView.snp.makeConstraints { make in
             make.top.equalTo(searchBar.snp.bottom).offset(8)
             make.leading.trailing.bottom.equalToSuperview()
+        }
+
+        statusLabel.snp.makeConstraints { make in
+            make.centerX.equalToSuperview()
+            make.top.equalTo(searchBar.snp.bottom).offset(40)
+            make.leading.trailing.equalToSuperview().inset(32)
         }
     }
 }

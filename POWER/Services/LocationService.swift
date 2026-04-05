@@ -6,8 +6,12 @@ private let locationLog = Logger(
     category: "Location"
 )
 
+protocol LocationServicing {
+    func requestLocation() async -> CLLocationCoordinate2D
+}
+
 @MainActor
-final class LocationService: NSObject, CLLocationManagerDelegate {
+final class LocationService: NSObject, CLLocationManagerDelegate, LocationServicing {
 
     private let manager = CLLocationManager()
     private let moscowCoordinate = CLLocationCoordinate2D(latitude: 55.7558, longitude: 37.6173)

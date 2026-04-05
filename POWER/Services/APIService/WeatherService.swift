@@ -41,9 +41,16 @@ enum WeatherEndpoint: Endpoint {
     }
 }
 
+// MARK: - Weather Servicing
+
+protocol WeatherServicing {
+    func fetchForecast(lat: Double, lon: Double) async throws(NetworkError) -> ForecastResponse
+    func searchCities(query: String) async throws(NetworkError) -> [CitySearchResult]
+}
+
 // MARK: - Weather Service
 
-final class WeatherService {
+final class WeatherService: WeatherServicing {
 
     private let network: NetworkServicing
 
