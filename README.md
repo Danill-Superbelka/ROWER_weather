@@ -2,10 +2,6 @@
 
 iOS-приложение погоды в стиле Apple Weather. Программный UI, современный Swift, двуязычная поддержка.
 
-## Скриншоты
-
-<!-- TODO: добавить скриншоты -->
-
 ## Архитектура
 
 **MVVM + Combine + Service Layer**
@@ -87,7 +83,7 @@ POWER/
 │   │       ├── HourlySectionView.swift
 │   │       ├── HourlyItemView.swift
 │   │       ├── DailySectionView.swift
-│   │       ├── DailyRowView.swift     # Температурная шкала
+│   │       ├── DailyRowView.swift    
 │   │       ├── DetailsSectionView.swift
 │   │       └── SunSectionView.swift
 │   └── CitySearch/
